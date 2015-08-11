@@ -1,17 +1,34 @@
 module FTPServerFunctions
 
-    COMMANDS = %w[user pass syst pwd list type feat cwd pasv mkd rmd dele cwd stor retr mode quit port site rnfr rnto cdup nlst size]
+    COMMANDS = %w[auth user pass syst pwd list type feat cwd pasv mkd rmd dele cwd stor retr mode quit port site rnfr rnto cdup nlst size]
+
+    # AUTH 
+    def auth(msg)
+        if (msg == "TLS")
+           ""
+        else 
+            "431 AUTH method not available"
+        end
+    end
 
     # USER
     def user(msg)
-        thread[:user] = msg
-        "331 Username correct"
+        if (@database.check_username("#{msg}"))
+            thread[:user] = msg
+            "331 Username correct"
+        else
+            "430 Invalid username" 
+        end
     end
 
     # PASS
     def pass(msg)
-        thread[:pass] = msg
-        "230 Logged in successfull"
+        if (@database.check_password("#{thread[:user]}", "#{msg}"))
+            thread[:pass] = msg
+            "230 Logged in successfull"
+        else
+            "430 Invalid password for #{thread[:user]}"
+        end
     end
 
     # SYST
@@ -24,7 +41,7 @@ module FTPServerFunctions
     def list(msg)
         response "150 Directory listing"
         send_data([`ls -l`.split("\n").join("\r\n") << "\r\n"])
-        "226 Tranfer complete"
+        "226 Tranfert complete"
     end
 
     # PWD
@@ -99,11 +116,15 @@ module FTPServerFunctions
     # CWD
     def cwd(msg)
         begin
-            Dir.chdir(msg)
+            if ((msg == ".." && @params.root <= File.expand_path("..", Dir.pwd)) ||
+                @params.root <= msg)
+                Dir.chdir(msg)
+                "250 Directory changed to #{Dir.pwd}"
+            else
+                "550 Not allowed to go there you fool"
+            end
         rescue Errno::ENOENT
             "550 Directory not found"
-        else
-            "250 Directory changed to " << Dir.pwd
         end
     end
 
@@ -162,8 +183,8 @@ module FTPServerFunctions
     end
 
     def cdup(msg)
-	Dir.chdir(@params.root)
-	"250 Directory successfully changed"
+	    Dir.chdir(@params.root)
+	    "250 Directory successfully changed"
     end
 
     # NLST
@@ -175,6 +196,6 @@ module FTPServerFunctions
 
     # SIZE
     def size(msg)
-	"213 #{File.size(msg)}"
+	    "213 #{File.size(msg)}"
     end
 end

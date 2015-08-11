@@ -3,12 +3,12 @@
 #	@author Damien Calesse, Pierre Leroy 
 #
 
-
-
 require 'socket'
 require 'optparse'
 require 'ostruct'
 
+require_relative 'Database'
+require_relative 'TLSServer'
 require_relative 'CommandHandler'
 
 
@@ -22,14 +22,22 @@ class Server
 	def initialize(hostname, port)
 		puts "Server starting up ..."
 
+        # set params
 		@params = OpenStruct.new
 		@params.host = hostname
 		@params.port = port
+		@params.tls_port = port.to_i + 800
 		@params.root = "#{Dir.pwd}/Docs"
         #@params.root = "/home/pierre/Documents/MasterS2/CAR/TP1/Docs"
-
-		# start
+            
+        # connect to database
+        @database = Database.new('user')
+        
+		# start server on 2121
 		@server = TCPServer.new(@params.host, @params.port)
+		
+		# start tls server on 2921
+		@tls_server = TLSServer.new(@params.host, @params.tls_port)
 
 		# change dir to root
 		Dir.chdir(@params.root)
@@ -63,8 +71,14 @@ class Server
 				request = session.gets
 				puts "#{request}"
 				reply = handler(request)
-				puts reply
-				response reply
+				if (reply == "430 Invalid password for #{thread[:user]}" ||
+				    reply == "430 Invalid username")
+				    !session.close
+				    !session.nil
+				else
+				    puts reply
+				    response reply
+				end
 			end
 
 		end

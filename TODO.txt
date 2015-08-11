@@ -1,0 +1,8 @@
+Do :
+
+    - Add user and user database
+    - Limit user to @Dir.root
+    
+Todo:
+
+    - Add SSL and TLS encryption
